@@ -1,10 +1,16 @@
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/Addons.js";
+import {
+    FBXLoader,
+    GLTFLoader,
+    OrbitControls,
+} from "three/examples/jsm/Addons.js";
 
 export class BasicWorld {
     private _threejs: THREE.WebGLRenderer;
     private _camera: THREE.PerspectiveCamera;
     private _scene: THREE.Scene;
+    private _mixer!: THREE.AnimationMixer;
+    private _clock: THREE.Clock;
 
     constructor() {
         // creating a webgl renderer
@@ -38,7 +44,8 @@ export class BasicWorld {
         this._scene = new THREE.Scene();
 
         // adding some light to that world
-        const light = new THREE.DirectionalLight(0xffffff);
+
+        const light = new THREE.DirectionalLight(0xffffff, 3.0);
         light.position.set(100, 100, 100);
         light.target.position.set(0, 0, 0);
         light.castShadow = true;
@@ -53,7 +60,7 @@ export class BasicWorld {
         light.shadow.camera.bottom = -200;
         this._scene.add(light);
 
-        const l2 = new THREE.AmbientLight(0x404040);
+        const l2 = new THREE.AmbientLight(0x101010);
         this._scene.add(l2);
 
         // adding controls
@@ -61,7 +68,7 @@ export class BasicWorld {
             this._camera,
             this._threejs.domElement
         );
-        controls.target.set(0, 0, 0);
+        controls.target.set(0, 10, 0);
         controls.update();
 
         // loading in a skybox
@@ -95,10 +102,47 @@ export class BasicWorld {
         box.position.set(0, 1, 0);
         box.castShadow = true;
         box.receiveShadow = true;
-        this._scene.add(box);
+        //this._scene.add(box);
+
+        // load a model
+        //this._LoadModel("/Rocket ship.glb"); // Rocket ship by Poly by Google [CC-BY] (https://creativecommons.org/licenses/by/3.0/)
+        this._LoadAnimatedModel();
+
+        // adding a clock to help animate model
+        this._clock = new THREE.Clock();
 
         // render funciton
         this._RAF();
+    }
+
+    private _LoadModel(path: string) {
+        const loader = new GLTFLoader();
+        loader.load(path, (gltf) => {
+            gltf.scene.traverse((obj) => {
+                obj.castShadow = true;
+            });
+            this._scene.add(gltf.scene);
+        });
+    }
+
+    private _LoadAnimatedModel() {
+        const loader = new FBXLoader();
+        loader.load("/mannequin/mannequin.fbx", (fbx) => {
+            fbx.scale.setScalar(0.1);
+            fbx.traverse((obj) => {
+                obj.castShadow = true;
+            });
+
+            console.log("starting animation load");
+            const aLoader = new FBXLoader();
+            aLoader.load("/mannequin/Silly_Dancing.fbx", (anim) => {
+                this._mixer = new THREE.AnimationMixer(fbx);
+                const sillyDance = this._mixer.clipAction(anim.animations[0]);
+                sillyDance.play();
+            });
+            this._scene.add(fbx);
+            console.log("end of animation load");
+        });
     }
 
     private _OnWindowResize() {
@@ -111,6 +155,12 @@ export class BasicWorld {
         requestAnimationFrame(() => {
             // callback
             this._threejs.render(this._scene, this._camera);
+
+            if (this._mixer) {
+                const delta = this._clock.getDelta();
+                this._mixer.update(delta);
+            }
+
             this._RAF();
         });
     }
