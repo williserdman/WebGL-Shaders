@@ -3,22 +3,58 @@ import { OrbitControls } from "three/examples/jsm/Addons.js";
 
 const _VS = `
 
-varying vec3 v_Normal;
+varying vec2 uvProxy;
+varying float aspectRatio;
+uniform float timeElapsed;
+varying float timeProxy;
 
 void main() {
+    timeProxy = timeElapsed;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    v_Normal = normal;
+    //aspectRatio = gl_Position.x / gl_Position.y;
+    uvProxy = uv;
 }
 `;
 const _FS = `
 
 uniform vec3 sphereColor;
+varying vec2 uvProxy;
+varying float timeProxy;
 
-varying vec3 v_Normal;
+vec3 palatte( float t ) {
+    vec3 a = vec3(0.5, 0.5, 0.5);
+    vec3 b = vec3(0.5, 0.5, 0.5);
+    vec3 c = vec3(1.0, 1.0, 1.0);
+    vec3 d = vec3(0.263, 0.416, 0.577);
+
+    return a + b * cos( 6.28318 * ( c * t + d ));
+}
 
 void main() {
-    // gl_FragColor = vec4(v_Normal, 1.0);
-    gl_FragColor = vec4(sphereColor, 1.0);
+    vec2 uv = uvProxy - 0.5; // moving center to 0, 0
+    uv = uv * 2.0; // now between -1 and 1
+    //uv.x *= aspectRatio;
+    vec2 uv0 = uv;
+    vec3 finalColor = vec3(0.0);
+
+    for (float i = 0.0; i < 5.0; i++) {
+        uv *= 1.5;
+        uv = fract(uv);
+        uv -= 0.5;
+
+        float d = length(uv) * exp(-length(uv0));
+        vec3 col = palatte(length(uv0) + timeProxy * 0.2 + i);
+
+        d = sin(d * 8.0 + timeProxy * 0.4);
+        d = abs(d);
+        // d = smoothstep(0.0, 0.6, d);
+        d = pow(0.05 / d, 1.5);
+
+        finalColor += col * d; 
+    }
+
+
+    gl_FragColor = vec4(finalColor, 1.0); // same as vec4(uv.x, uv.y, xxx, xxx)
 }
 `;
 
@@ -27,7 +63,7 @@ export class BasicWorld {
     private _camera: THREE.PerspectiveCamera;
     private _scene: THREE.Scene;
     private _clock: THREE.Clock;
-    private _sphere: THREE.Mesh;
+    private _screen: THREE.Mesh;
 
     constructor() {
         // creating a webgl renderer
@@ -55,7 +91,7 @@ export class BasicWorld {
         const near = 1.0;
         const far = 1000;
         this._camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-        this._camera.position.set(0, 20, 30);
+        this._camera.position.set(0, 0, 50);
 
         // the 3d world
         this._scene = new THREE.Scene();
@@ -99,41 +135,29 @@ export class BasicWorld {
         ]);
         this._scene.background = texture;
 
+        // adding ability to track time
+        this._clock = new THREE.Clock();
+
         // adding a plane
-        const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 100, 1, 1),
-            new THREE.MeshStandardMaterial({ color: 0xffffff })
-        );
-        plane.castShadow = false;
-        plane.receiveShadow = true;
-        plane.rotation.x = -Math.PI / 2;
-        this._scene.add(plane);
-
-        // adding two spheres
-        const s1 = new THREE.Mesh(
-            new THREE.SphereGeometry(2, 32, 32),
-            new THREE.MeshStandardMaterial({ color: 0xffffff })
-        );
-        s1.position.set(-10, 5, 0);
-        s1.castShadow = true;
-        this._scene.add(s1);
-
-        this._sphere = new THREE.Mesh(
-            new THREE.SphereGeometry(2, 32, 32),
+        this._screen = new THREE.Mesh(
+            new THREE.PlaneGeometry(
+                0.1 * window.innerWidth,
+                0.1 * window.innerHeight,
+                1,
+                1
+            ),
             new THREE.ShaderMaterial({
                 uniforms: {
-                    sphereColor: { value: new THREE.Vector3(0, 1, 0) },
+                    timeElapsed: { value: this._clock.getElapsedTime() },
                 },
                 vertexShader: _VS,
                 fragmentShader: _FS,
             })
         );
-        this._sphere.position.set(10, 5, 0);
-        this._sphere.castShadow = true;
-        this._scene.add(this._sphere);
-
-        // adding ability to track time
-        this._clock = new THREE.Clock();
+        this._screen.castShadow = false;
+        this._screen.receiveShadow = true;
+        //plane.rotation.x = -Math.PI / 2;
+        this._scene.add(this._screen);
 
         // render funciton
         this._RAF();
@@ -146,13 +170,9 @@ export class BasicWorld {
     }
 
     private _ShaderStep() {
-        const v = Math.sin(this._clock.getElapsedTime()) * 0.5 + 0.5; // will bounce -1:1
-        const color1 = new THREE.Vector3(1, 0, 0);
-        const color2 = new THREE.Vector3(0, 1, 0);
-        const sphereColor = color1.lerp(color2, v);
-
         //@ts-ignore
-        this._sphere.material.uniforms.sphereColor.value = sphereColor;
+        this._screen.material.uniforms.timeElapsed.value =
+            this._clock.getElapsedTime();
     }
 
     private _RAF() {
