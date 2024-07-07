@@ -38,7 +38,7 @@ export class BasicWorld {
         this._scene = new THREE.Scene();
 
         // adding some light to that world
-        const light = new THREE.DirectionalLight(0xffffff);
+        const light = new THREE.DirectionalLight(0xffffff, 3.0);
         light.position.set(100, 100, 100);
         light.target.position.set(0, 0, 0);
         light.castShadow = true;
