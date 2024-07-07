@@ -87,11 +87,11 @@ export class BasicWorld {
 
         // camera values
         const fov = 60;
-        const aspect = 1920 / 1080;
+        const aspect = window.innerWidth / window.innerHeight;
         const near = 1.0;
         const far = 1000;
         this._camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-        this._camera.position.set(0, 0, 50);
+        this._camera.position.set(0, 0, 150);
 
         // the 3d world
         this._scene = new THREE.Scene();
@@ -116,12 +116,12 @@ export class BasicWorld {
         this._scene.add(l2);
 
         // adding controls
-        const controls = new OrbitControls(
+        /* const controls = new OrbitControls(
             this._camera,
             this._threejs.domElement
         );
         controls.target.set(0, 0, 0);
-        controls.update();
+        controls.update(); */
 
         // loading in a skybox
         const loader = new THREE.CubeTextureLoader();
@@ -140,12 +140,7 @@ export class BasicWorld {
 
         // adding a plane
         this._screen = new THREE.Mesh(
-            new THREE.PlaneGeometry(
-                0.1 * window.innerWidth,
-                0.1 * window.innerHeight,
-                1,
-                1
-            ),
+            new THREE.PlaneGeometry(100, 100, 1, 1),
             new THREE.ShaderMaterial({
                 uniforms: {
                     timeElapsed: { value: this._clock.getElapsedTime() },
@@ -165,7 +160,7 @@ export class BasicWorld {
 
     private _OnWindowResize() {
         this._camera.aspect = window.innerWidth / window.innerHeight;
-        this._camera.updateProjectionMatrix();
+        //this._camera.updateProjectionMatrix();
         this._threejs.setSize(window.innerWidth, window.innerHeight);
     }
 
