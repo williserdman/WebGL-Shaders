@@ -1,10 +1,33 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
 
+const _VS = `
+
+varying vec3 v_Normal;
+
+void main() {
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    v_Normal = normal;
+}
+`;
+const _FS = `
+
+uniform vec3 sphereColor;
+
+varying vec3 v_Normal;
+
+void main() {
+    // gl_FragColor = vec4(v_Normal, 1.0);
+    gl_FragColor = vec4(sphereColor, 1.0);
+}
+`;
+
 export class BasicWorld {
     private _threejs: THREE.WebGLRenderer;
     private _camera: THREE.PerspectiveCamera;
     private _scene: THREE.Scene;
+    private _clock: THREE.Clock;
+    private _sphere: THREE.Mesh;
 
     constructor() {
         // creating a webgl renderer
@@ -32,13 +55,13 @@ export class BasicWorld {
         const near = 1.0;
         const far = 1000;
         this._camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-        this._camera.position.set(0, 100, -100);
+        this._camera.position.set(0, 20, 30);
 
         // the 3d world
         this._scene = new THREE.Scene();
 
         // adding some light to that world
-        const light = new THREE.DirectionalLight(0xffffff);
+        const light = new THREE.DirectionalLight(0xffffff, 3.0);
         light.position.set(100, 100, 100);
         light.target.position.set(0, 0, 0);
         light.castShadow = true;
@@ -86,16 +109,31 @@ export class BasicWorld {
         plane.rotation.x = -Math.PI / 2;
         this._scene.add(plane);
 
-        const box = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 2, 2),
-            new THREE.MeshStandardMaterial({
-                color: 0x808080,
+        // adding two spheres
+        const s1 = new THREE.Mesh(
+            new THREE.SphereGeometry(2, 32, 32),
+            new THREE.MeshStandardMaterial({ color: 0xffffff })
+        );
+        s1.position.set(-10, 5, 0);
+        s1.castShadow = true;
+        this._scene.add(s1);
+
+        this._sphere = new THREE.Mesh(
+            new THREE.SphereGeometry(2, 32, 32),
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    sphereColor: { value: new THREE.Vector3(0, 1, 0) },
+                },
+                vertexShader: _VS,
+                fragmentShader: _FS,
             })
         );
-        box.position.set(0, 1, 0);
-        box.castShadow = true;
-        box.receiveShadow = true;
-        this._scene.add(box);
+        this._sphere.position.set(10, 5, 0);
+        this._sphere.castShadow = true;
+        this._scene.add(this._sphere);
+
+        // adding ability to track time
+        this._clock = new THREE.Clock();
 
         // render funciton
         this._RAF();
@@ -107,10 +145,22 @@ export class BasicWorld {
         this._threejs.setSize(window.innerWidth, window.innerHeight);
     }
 
+    private _ShaderStep() {
+        const v = Math.sin(this._clock.getElapsedTime()) * 0.5 + 0.5; // will bounce -1:1
+        const color1 = new THREE.Vector3(1, 0, 0);
+        const color2 = new THREE.Vector3(0, 1, 0);
+        const sphereColor = color1.lerp(color2, v);
+
+        //@ts-ignore
+        this._sphere.material.uniforms.sphereColor.value = sphereColor;
+    }
+
     private _RAF() {
         requestAnimationFrame(() => {
             // callback
             this._threejs.render(this._scene, this._camera);
+            this._ShaderStep();
+
             this._RAF();
         });
     }
