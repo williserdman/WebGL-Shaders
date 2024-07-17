@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
 
-export class BasicWorld {
+export default class BasicWorld {
     private _threejs: THREE.WebGLRenderer;
     private _camera: THREE.PerspectiveCamera;
     private _scene: THREE.Scene;

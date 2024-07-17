@@ -1,3 +1,3 @@
-import { BasicWorld } from "./BasicWorld";
+import BasicWorld from "./BasicWorld";
 
 new BasicWorld();
