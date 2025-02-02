@@ -1,10 +1,69 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
 
-export default class BasicWorld {
+const _VS = `
+
+varying vec2 uvProxy;
+varying float aspectRatio;
+uniform float timeElapsed;
+varying float timeProxy;
+
+void main() {
+    timeProxy = timeElapsed;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    //aspectRatio = gl_Position.x / gl_Position.y;
+    uvProxy = uv;
+}
+`;
+const _FS = `
+
+uniform vec3 sphereColor;
+varying vec2 uvProxy;
+varying float timeProxy;
+
+vec3 palatte( float t ) {
+    vec3 a = vec3(0.5, 0.5, 0.5);
+    vec3 b = vec3(0.5, 0.5, 0.5);
+    vec3 c = vec3(1.0, 1.0, 1.0);
+    vec3 d = vec3(0.263, 0.416, 0.577);
+
+    return a + b * cos( 6.28318 * ( c * t + d ));
+}
+
+void main() {
+    vec2 uv = uvProxy - 0.5; // moving center to 0, 0
+    uv = uv * 2.0; // now between -1 and 1
+    //uv.x *= aspectRatio;
+    vec2 uv0 = uv;
+    vec3 finalColor = vec3(0.0);
+
+    for (float i = 0.0; i < 5.0; i++) {
+        uv *= 1.5;
+        uv = fract(uv);
+        uv -= 0.5;
+
+        float d = length(uv) * exp(-length(uv0));
+        vec3 col = palatte(length(uv0) + timeProxy * 0.2 + i);
+
+        d = sin(d * 8.0 + timeProxy * 0.4);
+        d = abs(d);
+        // d = smoothstep(0.0, 0.6, d);
+        d = pow(0.05 / d, 1.5);
+
+        finalColor += col * d; 
+    }
+
+
+    gl_FragColor = vec4(finalColor, 1.0); // same as vec4(uv.x, uv.y, xxx, xxx)
+}
+`;
+
+export class BasicWorld {
     private _threejs: THREE.WebGLRenderer;
     private _camera: THREE.PerspectiveCamera;
     private _scene: THREE.Scene;
+    private _clock: THREE.Clock;
+    private _screen: THREE.Mesh;
 
     constructor() {
         // creating a webgl renderer
@@ -28,11 +87,11 @@ export default class BasicWorld {
 
         // camera values
         const fov = 60;
-        const aspect = 1920 / 1080;
+        const aspect = window.innerWidth / window.innerHeight;
         const near = 1.0;
         const far = 1000;
         this._camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-        this._camera.position.set(0, 100, -100);
+        this._camera.position.set(0, 0, 150);
 
         // the 3d world
         this._scene = new THREE.Scene();
@@ -57,12 +116,12 @@ export default class BasicWorld {
         this._scene.add(l2);
 
         // adding controls
-        const controls = new OrbitControls(
+        /* const controls = new OrbitControls(
             this._camera,
             this._threejs.domElement
         );
         controls.target.set(0, 0, 0);
-        controls.update();
+        controls.update(); */
 
         // loading in a skybox
         const loader = new THREE.CubeTextureLoader();
@@ -76,26 +135,24 @@ export default class BasicWorld {
         ]);
         this._scene.background = texture;
 
-        // adding a plane
-        const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 100, 1, 1),
-            new THREE.MeshStandardMaterial({ color: 0xffffff })
-        );
-        plane.castShadow = false;
-        plane.receiveShadow = true;
-        plane.rotation.x = -Math.PI / 2;
-        this._scene.add(plane);
+        // adding ability to track time
+        this._clock = new THREE.Clock();
 
-        const box = new THREE.Mesh(
-            new THREE.BoxGeometry(2, 2, 2),
-            new THREE.MeshStandardMaterial({
-                color: 0x808080,
+        // adding a plane
+        this._screen = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100, 1, 1),
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    timeElapsed: { value: this._clock.getElapsedTime() },
+                },
+                vertexShader: _VS,
+                fragmentShader: _FS,
             })
         );
-        box.position.set(0, 1, 0);
-        box.castShadow = true;
-        box.receiveShadow = true;
-        this._scene.add(box);
+        this._screen.castShadow = false;
+        this._screen.receiveShadow = true;
+        //plane.rotation.x = -Math.PI / 2;
+        this._scene.add(this._screen);
 
         // render funciton
         this._RAF();
@@ -103,14 +160,22 @@ export default class BasicWorld {
 
     private _OnWindowResize() {
         this._camera.aspect = window.innerWidth / window.innerHeight;
-        this._camera.updateProjectionMatrix();
+        //this._camera.updateProjectionMatrix();
         this._threejs.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    private _ShaderStep() {
+        //@ts-ignore
+        this._screen.material.uniforms.timeElapsed.value =
+            this._clock.getElapsedTime();
     }
 
     private _RAF() {
         requestAnimationFrame(() => {
             // callback
             this._threejs.render(this._scene, this._camera);
+            this._ShaderStep();
+
             this._RAF();
         });
     }
