@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/Addons.js";
+// import { OrbitControls } from "three/examples/jsm/Addons.js";
 
 const _VS = `
 
@@ -180,3 +180,5 @@ export class BasicWorld {
         });
     }
 }
+
+export default BasicWorld;
