@@ -124,7 +124,7 @@ export class BasicWorld {
         controls.update(); */
 
         // loading in a skybox
-        const loader = new THREE.CubeTextureLoader();
+        /* const loader = new THREE.CubeTextureLoader();
         const texture = loader.load([
             "/px.png",
             "/nx.png",
@@ -133,6 +133,11 @@ export class BasicWorld {
             "/pz.png",
             "/nz.png",
         ]);
+        this._scene.background = texture; */
+
+        const loader = new THREE.TextureLoader();
+        const texture = loader.load("background2.jpeg");
+
         this._scene.background = texture;
 
         // adding ability to track time
@@ -140,7 +145,7 @@ export class BasicWorld {
 
         // adding a plane
         this._screen = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 100, 1, 1),
+            new THREE.PlaneGeometry(170, 170, 1, 1),
             new THREE.ShaderMaterial({
                 uniforms: {
                     timeElapsed: { value: this._clock.getElapsedTime() },
